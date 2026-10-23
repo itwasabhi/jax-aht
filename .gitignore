@@ -18,6 +18,12 @@ human_data_collecting/*.tar.gz
 **/__pycache__/
 **/*.pyc
 
+# Virtual environments / uv
+.venv/
+venv/
+uv.lock
+
+
 # Python packaging artifacts
 *.egg-info/
 __pycache__/

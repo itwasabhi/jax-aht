@@ -1,37 +1,54 @@
 # Instructions
 These instructions target Python 3.11.
 
-1. Create a conda environment: 
+Step 1 sets up an environment with the project installed; pick one of the two
+options. Steps 2-4 are the same either way.
 
-Command to install in specific directory with prefix:
+## 1a. Set up the environment with uv (recommended)
+
+From the repository root:
 ```bash
-conda create --prefix <path_of_choice>/<your_env_name> python=3.11
+uv sync                  # CPU-only Linux and macOS
+uv sync --extra cuda12   # Linux with NVIDIA GPUs and CUDA 12
+uv sync --extra test     # add pytest, ruff, and the human-data Flask server
 ```
 
-Command to install in default conda env location: 
+[uv](https://docs.astral.sh/uv/) creates a `.venv/` with Python 3.11 (pinned in
+`.python-version`, downloaded by uv if it is not already present) and installs
+the project in editable mode with the dependency set from `pyproject.toml`.
+
+Run project commands with `uv run`, which uses that environment without
+activating it:
 ```bash
-conda create --name your_env_name python=3.11
+uv run scripts/verify_install.py
+```
+Or activate it once with `source .venv/bin/activate` and use `python` as usual.
+The remaining steps are written with a plain `python`; prefix them with `uv run`
+if you prefer not to activate.
+
+`uv sync` writes a `uv.lock` with the exact resolved versions. It is gitignored
+by default; commit it if you want everyone on the project to get identical
+versions.
+
+## 1b. Set up the environment with pip
+
+Create and activate a Python 3.11 environment:
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 ```
 
-2. Activate your conda environment:
+Then install the project in editable mode from the repository root:
 ```bash
-conda activate your_env_name
+python -m pip install -e .          # CPU-only Linux and macOS
+python -m pip install -e ".[cuda12]" # Linux with NVIDIA GPUs and CUDA 12
 ```
 
-3. Navigate to the repository directory and install in development mode:
-```bash
-cd /path/to/jax-aht
-python -m pip install -e .
-```
+This installs the dependency set from `pyproject.toml` and puts the project on
+the import path, so no `PYTHONPATH` setup is needed.
 
-This installs the CPU-compatible dependency set from `pyproject.toml` and sets up the package for development.
+## 2. Verify the installation
 
-On Linux machines with NVIDIA GPUs and CUDA 12, install the CUDA extra instead:
-```bash
-python -m pip install -e ".[cuda12]"
-```
-
-4. Verify the installation:
 ```bash
 python scripts/verify_install.py
 ```
@@ -50,44 +67,33 @@ All checks passed.
 With the CUDA extra installed, the backend should be `gpu` and the devices should
 be listed as `CudaDevice` entries.
 
-5. Download evaluation data to get the evaluation agents:
+## 3. Download evaluation data to get the evaluation agents
+
 ```bash
 python download_eval_data.py
 ```
 
 Re-running the script only downloads files that are missing locally; pass `--force` to re-download everything.
 
-6. Test the installation by running our IPPO implementation: 
+## 4. Test the installation by running our IPPO implementation
+
 ```bash
 python marl/run.py task=lbf/lbf_7x7_nolevels algorithm=ippo/lbf/lbf_7x7_nolevels
 ```
 
-
 # Alternative Manual Installation
 
-If you prefer the manual setup or encounter issues with the pip installation:
-
-1. Follow steps 1-2 above
-2. Install packages manually: `python -m pip install -r requirements.txt`
-
-   On Linux machines with NVIDIA GPUs and CUDA 12, also run `python -m pip install "jax[cuda12]==0.5.3"`.
-3. Add project path to PYTHONPATH as a conda env var:
+If you encounter issues with the editable install, install the pinned
+dependencies directly into an activated environment:
 ```bash
-conda env config vars set PYTHONPATH=/path/to/repository/directory
-
-# deactivate and reactivate to apply changes
-conda deactivate 
-conda activate your_env_name
-
-# verify that pythonpath has been modified to include the current project dir
-echo $PYTHONPATH
+python -m pip install -r requirements.txt
 ```
+On Linux machines with NVIDIA GPUs and CUDA 12, also run
+`python -m pip install "jax[cuda12]==0.5.3"`.
 
-*If for some reason you need to remove the conda env var, you can run:
-```bash
-conda env config vars unset PYTHONPATH
-```
-4. Follow remaining installation steps from Step 4 onwards. 
+This does not install the project itself, so run all commands from the
+repository root, or set `PYTHONPATH=/path/to/jax-aht`. Then follow steps 2-4
+above.
 
 # Troubleshooting
 
@@ -121,9 +127,11 @@ runtime, which causes segfaults or cuBLAS/cuSolver errors after `jax.devices()`
 already reports a GPU. Check with `echo $LD_LIBRARY_PATH`.
 If the output is not empty, use:
 ```bash
-export LD_LIBRARY_PATH="" #so that it defaults to the pip-installed CUDA.
-conda env config vars set LD_LIBRARY_PATH= #so that it unsets the LD_LIBRARY_PATH when the conda environment is activated.
+export LD_LIBRARY_PATH=""  # so that it defaults to the pip-installed CUDA
 ```
+To make that persistent, add the `export` to your shell profile or to your
+environment's activation script (`.venv/bin/activate`), so it applies whenever
+the environment is activated.
 
 On macOS, CUDA is not used. If you see CPU devices from `jax.devices()`, that is the expected behavior.
 

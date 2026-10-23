@@ -109,7 +109,15 @@ Our modularization is restricted to environments, agents, and populations, which
 
 Follow instructions at [docs/install_instructions.md](docs/install_instructions.md) to install the necessary libraries.
 JaxAHT currently supports Python 3.11.
-The default install supports CPU-only Linux and macOS environments:
+
+With [uv](https://docs.astral.sh/uv/), the whole environment is one command:
+```bash
+uv sync                  # CPU-only Linux and macOS
+uv sync --extra cuda12   # Linux with NVIDIA GPUs and CUDA 12
+```
+Then run commands with `uv run`, e.g. `uv run scripts/verify_install.py`.
+
+With pip, in an activated Python 3.11 environment, the default install supports CPU-only Linux and macOS environments:
 ```bash
 python -m pip install -e .
 ```

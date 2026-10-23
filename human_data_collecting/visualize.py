@@ -14,9 +14,9 @@ Produces:
   human_data/plots/effort_analysis.html  — interactive dashboard with replay
 
 Usage:
-  conda activate jax-aht
-  cd ~/aht/jax-aht
-  python human_data/visualize.py
+  cd /path/to/jax-aht
+  uv run human_data_collecting/visualize.py   # or, in an activated environment:
+  python human_data_collecting/visualize.py
 """
 
 import json
