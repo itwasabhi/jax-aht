@@ -37,7 +37,9 @@ name: ${TASK_NAME}/${algorithm.ALG}/${label}
 # wandb settings
 logger: 
   project: aht-benchmark
-  entity: aht-project
+  # null lets wandb resolve the entity: $WANDB_ENTITY if set, otherwise your
+  # default entity. Set WANDB_ENTITY=aht-project to log to the project team.
+  entity: null
   tags: 
     - ${algorithm.ALG}
     - ${TASK_NAME}

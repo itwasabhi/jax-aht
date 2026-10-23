@@ -81,6 +81,37 @@ Re-running the script only downloads files that are missing locally; pass `--for
 python marl/run.py task=lbf/lbf_7x7_nolevels algorithm=ippo/lbf/lbf_7x7_nolevels
 ```
 
+# Logging to Weights & Biases
+
+Training entrypoints log through `common/wandb_visualizations.py`, which calls
+`wandb.init` once per process with the `logger` block of the Hydra config.
+
+Log in once per machine:
+```bash
+wandb login
+```
+
+The configs leave `logger.entity: null`, so wandb resolves the entity the
+standard way: `$WANDB_ENTITY` if it is set, otherwise the default entity of the
+logged-in user. Nothing is needed to log to your own account.
+
+To log to a shared team instead, set the environment variable:
+```bash
+export WANDB_ENTITY=aht-project
+```
+
+Both the entity and the project can also be overridden per run on the Hydra
+command line, which takes precedence over the environment:
+```bash
+python marl/run.py task=... algorithm=... logger.entity=my-team logger.project=my-project
+```
+
+`logger.mode` is set per entrypoint (`online` for `marl`, `offline` for the
+others) and is passed to `wandb.init` explicitly, so it takes precedence over
+`$WANDB_MODE`. Use `logger.mode=online` to upload, or `logger.mode=disabled` to
+turn logging off for a run. Offline runs are uploaded later with
+`wandb sync <run-dir>`, and are assigned to the resolved entity at sync time.
+
 # Alternative Manual Installation
 
 If you encounter issues with the editable install, install the pinned

@@ -40,7 +40,9 @@ ANNEAL_LR: False
 # WandB Params
 logger: 
   project: aht-benchmark
-  entity: aht-project
+  # null lets wandb resolve the entity: $WANDB_ENTITY if set, otherwise your
+  # default entity. Set WANDB_ENTITY=aht-project to log to the project team.
+  entity: null
   mode: offline # options: online, offline, disabled
   verbose: false
   log_train_out: true # whether to log the out dictionary
