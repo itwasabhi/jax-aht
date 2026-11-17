@@ -198,6 +198,21 @@ Each contains a `run.py` that serves as an entry point.
 We provide an `experiments.sh` for open-ended and teammate generation methods that runs the algorithm specified
 at the top of the `experiments.sh`, on LBF and Overcooked tasks.
 
+### Staged teammate generation pipelines
+Teammate generation methods that chain several trainings (CoMeDi, FCP, BRDiv/LBRDiv) can also be run
+stage by stage. Each stage is a normal entry point (`marl/run.py`, `teammate_generation/run.py`,
+`ego_agent_training/run.py`) run as its own subprocess, so each gets its own Hydra output dir, wandb run
+and checkpoint, and the tuned `marl/ippo` hyperparameters are reused for the PPO stages:
+```bash
+uv run teammate_generation/pipelines/comedi_pipeline.py --task lbf/lbf_7x7_nolevels --label my_run
+uv run teammate_generation/pipelines/fcp_pipeline.py --task lbf/lbf_7x7_nolevels
+uv run teammate_generation/pipelines/brdiv_pipeline.py --alg lbrdiv --task lbf/lbf_7x7_nolevels
+```
+Outputs go to `results/<task>/<alg>_pipeline/<label>/<timestamp>/<stage>`, with a `pipeline.json` recording each
+stage's command and status. Use `--extra_<stage> "<hydra overrides>"` to override a stage, `--stages ego` with
+`--seed_path/--comedi_path/--pool_path/--population_path` to resume from existing checkpoints.
+The single-command runs (`teammate_generation/run.py algorithm=...`) are unchanged.
+
 ## 📝 Code Overview
 
 ### 🎨 Code Style
