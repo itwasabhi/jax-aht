@@ -9,6 +9,15 @@ renamed to the new version and a fresh `Unreleased` section is started.
 
 ## [Unreleased]
 
+### Added
+- Staged teammate generation pipelines in `teammate_generation/pipelines/` (`comedi_pipeline.py`,
+  `fcp_pipeline.py`, `brdiv_pipeline.py`). Each stage (PPO seed / IPPO pool, population training,
+  ego training) runs as its own subprocess via the existing entry points, so every stage has its
+  own Hydra output directory, wandb run and saved checkpoint. The staged CoMeDi seed and FCP pool
+  use the tuned `marl/ippo` hyperparameters, so their results differ from the single-process runs.
+- `algorithm.seed_agent.path` for CoMeDi: start from a pre-trained PPO seed checkpoint instead of
+  training one inline. The default (`null`) keeps the previous behavior.
+
 ## [1.1.0] - 2026-09-15
 
 Benchmark results from this version are **not comparable to 1.0.0**: the tuned hyperparameters

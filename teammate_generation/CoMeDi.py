@@ -27,7 +27,7 @@ from agents.population_buffer import BufferedPopulation
 from agents.population_interface import AgentPopulation
 from common.plot_utils import get_metric_names
 from common.run_episodes import run_episodes
-from common.save_load_utils import save_train_run
+from common.save_load_utils import load_checkpoints, save_train_run
 from envs import make_env
 from envs.log_wrapper import LogEnvState, LogWrapper
 from marl.ippo import make_train as make_ppo_train
@@ -49,7 +49,9 @@ class ResetTransition(NamedTuple):
     partner_hstate: jnp.ndarray
 
 
-def train_comedi_partners(train_rng, wandb_logger, env, config):
+def train_comedi_partners(train_rng, wandb_logger, env, config, seed_params=None):
+    """If seed_params is given, it initializes the population buffer; otherwise a seed
+    agent is trained inline with PPO (legacy behavior)."""
     num_agents = env.num_agents
     assert num_agents == 2, "This code assumes the environment has exactly 2 agents."
 
@@ -105,11 +107,18 @@ def train_comedi_partners(train_rng, wandb_logger, env, config):
             out = make_ppo_train(warmup_config, env, wandb_logger)(partner_rng)
             return out
 
-        def train(rng):
-            # Start by training a single PPO agent via self-play
+        def train(rng, seed_params=None):
             rng, init_ppo_rng, init_conf_rng = jax.random.split(rng, 3)
 
-            init_ppo_partner = train_init_ippo_partners(config, init_ppo_rng, env)
+            if seed_params is None:
+                # Start by training a single PPO agent via self-play
+                init_seed_params = train_init_ippo_partners(config, init_ppo_rng, env)[
+                    "final_params"
+                ]
+            else:
+                # Pre-trained seed agent (e.g. from marl/run.py)
+                config["POP_SIZE"] = config["PARTNER_POP_SIZE"]
+                init_seed_params = seed_params
 
             # Initialize a population buffer
             dummy_policy, dummy_init_params = initialize_actor_with_conditional_critic(
@@ -122,7 +131,7 @@ def train_comedi_partners(train_rng, wandb_logger, env, config):
 
             population_buffer = partner_population.reset_buffer(dummy_init_params)
             population_buffer = partner_population.add_agent(
-                population_buffer, init_ppo_partner["final_params"]
+                population_buffer, init_seed_params
             )
 
             def add_conf_policy(pop_buffer, func_input):
@@ -1671,7 +1680,7 @@ def train_comedi_partners(train_rng, wandb_logger, env, config):
         return train
 
     train_fn = make_comedi_agents(config)
-    out = train_fn(train_rng)
+    out = train_fn(train_rng, seed_params)
     return out
 
 
@@ -1712,19 +1721,33 @@ def run_comedi(config, wandb_logger):
     rng = jax.random.PRNGKey(algorithm_config["TRAIN_SEED"])
     rngs = jax.random.split(rng, algorithm_config["NUM_SEEDS"])
 
-    # Create a vmapped version of train_comedi_partners
-    with jax.disable_jit(False):
-        vmapped_train_fn = jax.jit(
-            jax.vmap(
-                partial(
-                    train_comedi_partners,
-                    wandb_logger=wandb_logger,
-                    env=env,
-                    config=algorithm_config,
-                )
-            )
+    seed_cfg = algorithm_config.get("seed_agent") or {}
+    seed_params = None
+    if seed_cfg.get("path"):
+        seed_params = load_checkpoints(
+            seed_cfg["path"], ckpt_key=seed_cfg.get("ckpt_key", "final_params")
         )
-        out = vmapped_train_fn(rngs)
+        n_seed = jax.tree.leaves(seed_params)[0].shape[0]
+        assert n_seed == algorithm_config["NUM_SEEDS"], (
+            f"Seed checkpoint has {n_seed} seeds but NUM_SEEDS="
+            f"{algorithm_config['NUM_SEEDS']}"
+        )
+        log.info(f"Using pre-trained seed agent from {seed_cfg['path']}")
+
+    # Create a vmapped version of train_comedi_partners
+    train_partial = partial(
+        train_comedi_partners,
+        wandb_logger=wandb_logger,
+        env=env,
+        config=algorithm_config,
+    )
+    with jax.disable_jit(False):
+        if seed_params is None:
+            out = jax.jit(jax.vmap(train_partial))(rngs)
+        else:
+            out = jax.jit(
+                jax.vmap(lambda r, sp: train_partial(r, seed_params=sp))
+            )(rngs, seed_params)
 
     end = time.time()
     log.info(f"CoMeDi training complete in {end - start} seconds")
